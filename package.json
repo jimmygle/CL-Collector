@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/jimmygle/CL-Collector/issues"
   },
-  "homepage": "https://github.com/jimmygle/CL-Collector"
+  "homepage": "https://github.com/jimmygle/CL-Collector",
+  "dependencies": {
+    "cheerio": "^0.18.0"
+  }
 }
