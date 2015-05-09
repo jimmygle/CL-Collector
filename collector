@@ -1,0 +1,103 @@
+#!/usr/bin/env node
+'use strict'
+
+var config = require('./config');
+var request = require('./request');
+var parse = require('./parse');
+
+
+console.log("\nGETTING STARTED\n");
+
+config.cities.forEach(function(city) {
+    config.craigslist.keys.forEach(function(key) {
+
+        var parser = new parse();
+
+        // Make initial request to get first set of posts and pagination details
+        new request({
+            host: city.subdomain + '.' + config.craigslist.domain,
+            path: config.craigslist.path + key
+        }).make(function parseResponse(rawResponse) {
+            parser.parse(rawResponse);
+        });
+
+        // Posts successfully parsed
+        parser.events.on('posts-parsed', function() {
+            // save it to the database and then clean it from posts array on parser object, or wait until every request is finished?
+            console.log(parser.posts.length + ' posts parsed');
+        });
+
+        // Pagination successfully parsed... move on to the next page
+        parser.events.on('pagination-parsed', function() {
+
+            var secondsBetweenRequests = Math.ceil(Number(60 / config.throttling.requestsPerMinute));
+
+            console.log('Range Start:  ' + parser.currentRangeStart);
+            console.log('Range End:    ' + parser.currentRangeEnd);
+            console.log('Total:        ' + parser.totalCount);
+            console.log('Previous URI: ' + parser.previousPageUri);
+            console.log('Next URI:     ' + parser.nextPageUri);
+
+            console.log("\nWaiting " + secondsBetweenRequests + " seconds...\n");
+
+            if (parser.currentRangeEnd < 200) {
+                setTimeout(function() {
+                    new request({
+                        host: city.subdomain + '.' + config.craigslist.domain,
+                        path: parser.nextPageUri
+                    }).make(function parseResponse(rawResponse) {
+                            parser.parse(rawResponse);
+                    });
+                }, secondsBetweenRequests * 1000);
+            }
+
+        });
+
+    });
+});
+
+
+
+
+
+
+
+
+
+//handleHttpResponse: function(response) {
+//	this.statusCode = response.statusCode;
+//	response.setEncoding('utf8');
+//	var rawMarkup;
+//	response.on('data', function addDataChunkToMarkup(chunk) {
+//		rawMarkup += chunk;
+//	});
+//	response.on('end', function parsePostsFromMarkup() {
+//		var posts = [];
+//		$ = cheerio.load(rawMarkup);
+//		var postingsContainer = $('body div.middle form#searchform div.rightpane div.content p.row');
+//		postingsContainer.each(function(i, elem) {
+//			var post = new Post({
+//				'title': $('span.txt span.pl a', this).text(),
+//				'time': $('span.txt span.pl time', this).attr('datetime'),
+//				'uri': $('span.txt span.pl a', this).attr('href'),
+//				'id': Number($('span.txt span.pl a', this).attr('data-id')) || false,
+//				'repostOf': Number($('span.txt span.pl a', this).attr('data-repost-of')) || false,
+//				'price': $('span.txt span.l2 span.price', this).text(),
+//				'location': $('span.txt span.l2 span.pnr small', this).text()
+//			});
+//			post.save(function (err) {
+//				if (err) {
+//					console.log("error saving post: " + err);
+//					return err;
+//				} else {
+//					console.log("post saved");
+//				}
+//			});
+//		});
+//		console.log(posts);
+//	});
+//},
+//
+//handleHttpError: function(error) {
+//	console.log('Got error: ' + error.message);
+//}
