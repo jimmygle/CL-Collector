@@ -1,0 +1,59 @@
+#!/usr/bin/env node
+'use strict'
+
+var config = require('./config');
+var request = require('./request');
+var parse = require('./parse');
+
+console.log("\nGETTING STARTED\n");
+
+config.cities.forEach(function(city) {
+    config.craigslist.keys.forEach(function(key) {
+
+        var parser = new parse();
+
+        // Make initial request to get first set of posts and pagination details
+        new request({
+            host: city.subdomain + '.' + config.craigslist.domain,
+            path: config.craigslist.path + key
+        }).make(function parseResponse(rawResponse) {
+            parser.parse(rawResponse);
+        });
+
+        // Posts successfully parsed
+        parser.events.on('posts-parsed', function() {
+            // save it to the database and then clean it from posts array on parser object, or wait until every request is finished?
+            console.log(parser.posts.length + ' posts parsed');
+        });
+
+        // Pagination successfully parsed... move on to the next page
+        parser.events.on('pagination-parsed', function() {
+
+            var secondsBetweenRequests = Math.ceil(Number(60 / config.throttling.requestsPerMinute));
+
+            console.log('Range Start:  ' + parser.currentRangeStart);
+            console.log('Range End:    ' + parser.currentRangeEnd);
+            console.log('Total:        ' + parser.totalCount);
+            console.log('Previous URI: ' + parser.previousPageUri);
+            console.log('Next URI:     ' + parser.nextPageUri);
+
+            if (parser.currentRangeEnd < parser.totalCount) {
+
+                console.log("\nWaiting " + secondsBetweenRequests + " seconds...\n");
+
+                setTimeout(function() {
+                    new request({
+                        host: city.subdomain + '.' + config.craigslist.domain,
+                        path: parser.nextPageUri
+                    }).make(function parseResponse(rawResponse) {
+                            parser.parse(rawResponse);
+                    });
+                }, secondsBetweenRequests * 1000);
+            } else {
+                console.log("\nDONE\n");
+            }
+
+        });
+
+    });
+});
