@@ -37,9 +37,10 @@ config.cities.forEach(function(city) {
             console.log('Previous URI: ' + parser.previousPageUri);
             console.log('Next URI:     ' + parser.nextPageUri);
 
-            console.log("\nWaiting " + secondsBetweenRequests + " seconds...\n");
+            if (parser.currentRangeEnd < parser.totalCount) {
 
-            if (parser.currentRangeEnd < 200) {
+                console.log("\nWaiting " + secondsBetweenRequests + " seconds...\n");
+
                 setTimeout(function() {
                     new request({
                         host: city.subdomain + '.' + config.craigslist.domain,
@@ -48,6 +49,8 @@ config.cities.forEach(function(city) {
                             parser.parse(rawResponse);
                     });
                 }, secondsBetweenRequests * 1000);
+            } else {
+                console.log("\nDONE\n");
             }
 
         });
